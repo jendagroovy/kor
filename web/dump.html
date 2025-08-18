@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KOR - Výsledky kontrolních bodů</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }
+
+        .summary-card h3 {
+            color: #2c3e50;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .summary-card .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .checkpoint {
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: #e3f2fd;
+            color: #1976d2;
+            display: inline-block;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .checkpoint.start {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+
+        .checkpoint.finish {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .out-of-order {
+            background-color: #ffebee !important;
+        }
+
+        .out-of-order .checkpoint {
+            background: #ffcdd2 !important;
+            color: #c62828 !important;
+        }
+
+        .time {
+            font-family: 'Courier New', monospace;
+            font-weight: 500;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #f44336;
+            margin: 20px 0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .no-data h3 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .summary {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            th, td {
+                padding: 8px 12px;
+                font-size: 0.9rem;
+            }
+
+            .checkpoint {
+                min-width: 70px;
+                font-size: 0.85rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .header p {
+                font-size: 1rem;
+            }
+
+            th, td {
+                padding: 6px 8px;
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏃‍♂️ KOR</h1>
+            <p>Výsledky kontrolních bodů</p>
+        </div>
+        
+        <div class="content">
+            <div id="loading" class="loading">
+                <p>Načítání dat...</p>
+            </div>
+
+            <div id="error" class="error" style="display: none;">
+                <h3>Chyba při načítání dat</h3>
+                <p id="error-message"></p>
+            </div>
+
+            <div id="no-data" class="no-data" style="display: none;">
+                <h3>Žádná data</h3>
+                <p>V URL nebyl nalezen parametr 'table' nebo je prázdný.</p>
+            </div>
+
+            <div id="results" style="display: none;">
+                <div class="summary">
+                    <div class="summary-card">
+                        <h3>Celkový čas</h3>
+                        <div class="value" id="total-time">-</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Počet kontrol</h3>
+                        <div class="value" id="checkpoint-count">-</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Stav</h3>
+                        <div class="value" id="race-status">-</div>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Pořadí</th>
+                                <th>Kontrolní bod</th>
+                                <th>Čas</th>
+                                <th>Mezičas</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-table">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Base64URL decoder
+        function base64UrlDecode(str) {
+            // Convert base64url to base64
+            str = str.replace(/-/g, '+').replace(/_/g, '/');
+            
+            // Add padding if needed
+            while (str.length % 4) {
+                str += '=';
+            }
+            
+            // Decode base64 to binary string
+            const binaryString = atob(str);
+            
+            // Convert to Uint8Array
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            
+            return bytes;
+        }
+
+        // Parse binary data into checkpoint presses
+        function parseCheckpointData(binaryData) {
+            const checkpoints = [];
+            
+            // Each checkpoint is 4 bytes: 1 byte checkpoint + 3 bytes timestamp
+            for (let i = 0; i < binaryData.length; i += 4) {
+                if (i + 3 < binaryData.length) {
+                    const checkpoint = binaryData[i];
+                    const timestamp = (binaryData[i + 1] << 16) | (binaryData[i + 2] << 8) | binaryData[i + 3];
+                    
+                    checkpoints.push({
+                        checkpoint: checkpoint,
+                        timestamp: timestamp
+                    });
+                }
+            }
+            
+            return checkpoints;
+        }
+
+        // Convert checkpoint number to Czech label
+        function getCheckpointLabel(checkpointNum) {
+            if (checkpointNum === 0) {
+                return 'Start';
+            } else if (checkpointNum === 99) {
+                return 'Cíl';
+            } else {
+                return `Kontrola ${checkpointNum}`;
+            }
+        }
+
+        // Format time in mm:ss.sss format
+        function formatTime(milliseconds) {
+            const totalSeconds = Math.floor(milliseconds / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            const ms = milliseconds % 1000;
+            
+            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+        }
+
+        // Check if checkpoints are in correct order
+        function detectOutOfOrder(checkpoints) {
+            const outOfOrder = new Set();
+            
+            if (checkpoints.length === 0) return outOfOrder;
+            
+            // First checkpoint should be Start (0)
+            if (checkpoints[0].checkpoint !== 0) {
+                outOfOrder.add(0);
+            }
+            
+            let expectedNext = 1; // We expect checkpoints 1, 2, 3, 4, 5, ... in order
+            let hasError = false; // Track current error state
+            
+            for (let i = 1; i < checkpoints.length; i++) {
+                const current = checkpoints[i];
+                
+                // Special case: Finish (99) can end the sequence at any time
+                if (current.checkpoint === 99) {
+                    // Finish is only red if we're currently in error state
+                    if (hasError) {
+                        outOfOrder.add(i);
+                    }
+                    break; // Finish ends the sequence
+                }
+                
+                // Start (0) should not appear again
+                if (current.checkpoint === 0) {
+                    outOfOrder.add(i);
+                    hasError = true;
+                    continue;
+                }
+                
+                // Check if current checkpoint is the expected next one
+                if (current.checkpoint === expectedNext) {
+                    // Correct checkpoint - we're back on track
+                    hasError = false;
+                    expectedNext++;
+                } else {
+                    // Wrong checkpoint - mark as error and set error state
+                    outOfOrder.add(i);
+                    hasError = true;
+                    // Don't advance expectedNext - we still need to visit it
+                }
+            }
+            
+            return outOfOrder;
+        }
+
+        // Main function to load and display data
+        function loadCheckpointData() {
+            try {
+                // Get table parameter from URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const tableParam = urlParams.get('table');
+                
+                if (!tableParam) {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('no-data').style.display = 'block';
+                    return;
+                }
+
+                // Decode the data
+                const binaryData = base64UrlDecode(tableParam);
+                const checkpoints = parseCheckpointData(binaryData);
+                
+                if (checkpoints.length === 0) {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('no-data').style.display = 'block';
+                    return;
+                }
+
+                // Detect out of order checkpoints
+                const outOfOrderIndices = detectOutOfOrder(checkpoints);
+
+                // Calculate summary data
+                const hasStart = checkpoints[0]?.checkpoint === 0;
+                const hasFinish = checkpoints[checkpoints.length - 1]?.checkpoint === 99;
+                const totalTime = checkpoints.length > 0 ? checkpoints[checkpoints.length - 1].timestamp : 0;
+                
+                // Update summary
+                document.getElementById('total-time').textContent = formatTime(totalTime);
+                document.getElementById('checkpoint-count').textContent = checkpoints.length;
+                document.getElementById('race-status').textContent = hasFinish ? 'Dokončeno' : 'Probíhá';
+
+                // Generate table rows
+                const tableBody = document.getElementById('results-table');
+                tableBody.innerHTML = '';
+
+                checkpoints.forEach((cp, index) => {
+                    const row = document.createElement('tr');
+                    if (outOfOrderIndices.has(index)) {
+                        row.classList.add('out-of-order');
+                    }
+
+                    const checkpointClass = cp.checkpoint === 0 ? 'start' : 
+                                           cp.checkpoint === 99 ? 'finish' : '';
+                    
+                    const splitTime = index > 0 ? cp.timestamp - checkpoints[index - 1].timestamp : cp.timestamp;
+
+                    row.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td><span class="checkpoint ${checkpointClass}">${getCheckpointLabel(cp.checkpoint)}</span></td>
+                        <td class="time">${formatTime(cp.timestamp)}</td>
+                        <td class="time">${formatTime(splitTime)}</td>
+                    `;
+                    
+                    tableBody.appendChild(row);
+                });
+
+                // Show results
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('results').style.display = 'block';
+
+            } catch (error) {
+                console.error('Error loading checkpoint data:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error-message').textContent = error.message;
+            }
+        }
+
+        // Load data when page loads
+        document.addEventListener('DOMContentLoaded', loadCheckpointData);
+    </script>
+</body>
+</html>
