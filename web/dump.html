@@ -80,6 +80,16 @@
             color: #667eea;
         }
 
+        .summary-card.disqualified {
+            background: #ffebee;
+            border-left: 4px solid #c62828;
+            box-shadow: 0 2px 8px rgba(198, 40, 40, 0.15);
+        }
+
+        .summary-card.disqualified .value {
+            color: #c62828;
+        }
+
         .table-wrapper {
             overflow-x: auto;
             border-radius: 8px;
@@ -230,7 +240,7 @@
             <h1>🏃‍♂️ KOR</h1>
             <p>Výsledky kontrolních bodů</p>
         </div>
-        
+
         <div class="content">
             <div id="loading" class="loading">
                 <p>Načítání dat...</p>
@@ -253,7 +263,7 @@
                         <div class="value" id="total-time">-</div>
                     </div>
                     <div class="summary-card">
-                        <h3>Počet kontrol</h3>
+                        <h3>Správných kontrol</h3>
                         <div class="value" id="checkpoint-count">-</div>
                     </div>
                     <div class="summary-card">
@@ -285,42 +295,49 @@
         function base64UrlDecode(str) {
             // Convert base64url to base64
             str = str.replace(/-/g, '+').replace(/_/g, '/');
-            
+
             // Add padding if needed
             while (str.length % 4) {
                 str += '=';
             }
-            
+
             // Decode base64 to binary string
             const binaryString = atob(str);
-            
+
             // Convert to Uint8Array
             const bytes = new Uint8Array(binaryString.length);
             for (let i = 0; i < binaryString.length; i++) {
                 bytes[i] = binaryString.charCodeAt(i);
             }
-            
+
             return bytes;
         }
 
         // Parse binary data into checkpoint presses
         function parseCheckpointData(binaryData) {
+            if (binaryData.length < 1) {
+                return { courseLength: 0, checkpoints: [] };
+            }
+
+            // First byte is course length
+            const courseLength = binaryData[0];
             const checkpoints = [];
-            
+
             // Each checkpoint is 4 bytes: 1 byte checkpoint + 3 bytes timestamp
-            for (let i = 0; i < binaryData.length; i += 4) {
+            // Start from index 1 to skip the course length byte
+            for (let i = 1; i < binaryData.length; i += 4) {
                 if (i + 3 < binaryData.length) {
                     const checkpoint = binaryData[i];
                     const timestamp = (binaryData[i + 1] << 16) | (binaryData[i + 2] << 8) | binaryData[i + 3];
-                    
+
                     checkpoints.push({
                         checkpoint: checkpoint,
                         timestamp: timestamp
                     });
                 }
             }
-            
-            return checkpoints;
+
+            return { courseLength, checkpoints };
         }
 
         // Convert checkpoint number to Czech label
@@ -340,43 +357,50 @@
             const minutes = Math.floor(totalSeconds / 60);
             const seconds = totalSeconds % 60;
             const ms = milliseconds % 1000;
-            
+
             return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
         }
 
         // Check if checkpoints are in correct order
-        function detectOutOfOrder(checkpoints) {
+        function detectOutOfOrder(checkpoints, courseLength) {
             const outOfOrder = new Set();
-            
+
             if (checkpoints.length === 0) return outOfOrder;
-            
+
             // First checkpoint should be Start (0)
             if (checkpoints[0].checkpoint !== 0) {
                 outOfOrder.add(0);
             }
-            
+
             let expectedNext = 1; // We expect checkpoints 1, 2, 3, 4, 5, ... in order
             let hasError = false; // Track current error state
-            
+
             for (let i = 1; i < checkpoints.length; i++) {
                 const current = checkpoints[i];
-                
+
                 // Special case: Finish (99) can end the sequence at any time
                 if (current.checkpoint === 99) {
-                    // Finish is only red if we're currently in error state
-                    if (hasError) {
+                    // Finish is red if:
+                    // 1. We're currently in error state, OR
+                    // 2. Not all controls from the course have been visited (early finish)
+                    if (hasError || expectedNext <= courseLength) {
                         outOfOrder.add(i);
                     }
                     break; // Finish ends the sequence
                 }
-                
+
                 // Start (0) should not appear again
                 if (current.checkpoint === 0) {
                     outOfOrder.add(i);
-                    hasError = true;
                     continue;
                 }
-                
+
+                // Check if this control is beyond the course length (extra control)
+                if (current.checkpoint > courseLength) {
+                    outOfOrder.add(i);
+                    continue;
+                }
+
                 // Check if current checkpoint is the expected next one
                 if (current.checkpoint === expectedNext) {
                     // Correct checkpoint - we're back on track
@@ -389,7 +413,7 @@
                     // Don't advance expectedNext - we still need to visit it
                 }
             }
-            
+
             return outOfOrder;
         }
 
@@ -399,7 +423,7 @@
                 // Get table parameter from URL
                 const urlParams = new URLSearchParams(window.location.search);
                 const tableParam = urlParams.get('table');
-                
+
                 if (!tableParam) {
                     document.getElementById('loading').style.display = 'none';
                     document.getElementById('no-data').style.display = 'block';
@@ -408,26 +432,61 @@
 
                 // Decode the data
                 const binaryData = base64UrlDecode(tableParam);
-                const checkpoints = parseCheckpointData(binaryData);
-                
+                const { courseLength, checkpoints } = parseCheckpointData(binaryData);
+
                 if (checkpoints.length === 0) {
                     document.getElementById('loading').style.display = 'none';
                     document.getElementById('no-data').style.display = 'block';
                     return;
                 }
 
-                // Detect out of order checkpoints
-                const outOfOrderIndices = detectOutOfOrder(checkpoints);
+                // Detect out of order checkpoints using course length
+                const outOfOrderIndices = detectOutOfOrder(checkpoints, courseLength);
 
                 // Calculate summary data
                 const hasStart = checkpoints[0]?.checkpoint === 0;
                 const hasFinish = checkpoints[checkpoints.length - 1]?.checkpoint === 99;
                 const totalTime = checkpoints.length > 0 ? checkpoints[checkpoints.length - 1].timestamp : 0;
-                
+
+                // Calculate visited checkpoints count (X/Y format)
+                const visitedCheckpoints = new Set();
+                checkpoints.forEach((cp, index) => {
+                    // Only count if not out of order and not a duplicate
+                    if (!outOfOrderIndices.has(index) && !visitedCheckpoints.has(cp.checkpoint)) {
+                        visitedCheckpoints.add(cp.checkpoint);
+                    }
+                });
+
+                const visitedCount = visitedCheckpoints.size;
+                const totalCheckpoints = courseLength + 2; // course controls + start + finish
+                const checkpointDisplay = `${visitedCount}/${totalCheckpoints}`;
+
+                // Determine race status
+                let raceStatus = 'Probíhá';
+                if (hasFinish) {
+                    // Check if finish checkpoint is marked as out of order (red)
+                    const finishIndex = checkpoints.length - 1;
+                    if (outOfOrderIndices.has(finishIndex)) {
+                        raceStatus = 'Diskvalifikace';
+                    } else {
+                        raceStatus = 'Dokončeno';
+                    }
+                }
+
                 // Update summary
                 document.getElementById('total-time').textContent = formatTime(totalTime);
-                document.getElementById('checkpoint-count').textContent = checkpoints.length;
-                document.getElementById('race-status').textContent = hasFinish ? 'Dokončeno' : 'Probíhá';
+                document.getElementById('checkpoint-count').textContent = checkpointDisplay;
+
+                const raceStatusElement = document.getElementById('race-status');
+                raceStatusElement.textContent = raceStatus;
+
+                // Apply disqualified styling to the entire summary card
+                const raceStatusCard = raceStatusElement.closest('.summary-card');
+                if (raceStatus === 'Diskvalifikace') {
+                    raceStatusCard.classList.add('disqualified');
+                } else {
+                    raceStatusCard.classList.remove('disqualified');
+                }
 
                 // Generate table rows
                 const tableBody = document.getElementById('results-table');
@@ -435,22 +494,39 @@
 
                 checkpoints.forEach((cp, index) => {
                     const row = document.createElement('tr');
-                    if (outOfOrderIndices.has(index)) {
+                    const isValid = !outOfOrderIndices.has(index);
+
+                    if (!isValid) {
                         row.classList.add('out-of-order');
                     }
 
-                    const checkpointClass = cp.checkpoint === 0 ? 'start' : 
+                    const checkpointClass = cp.checkpoint === 0 ? 'start' :
                                            cp.checkpoint === 99 ? 'finish' : '';
-                    
-                    const splitTime = index > 0 ? cp.timestamp - checkpoints[index - 1].timestamp : cp.timestamp;
+
+                    // Calculate split time only for valid controls, relative to previous valid control
+                    let splitTimeDisplay = '';
+                    if (isValid) {
+                        // Find previous valid control
+                        let previousValidTimestamp = 0;
+                        for (let i = index - 1; i >= 0; i--) {
+                            if (!outOfOrderIndices.has(i)) {
+                                previousValidTimestamp = checkpoints[i].timestamp;
+                                break;
+                            }
+                        }
+                        const splitTime = cp.timestamp - previousValidTimestamp;
+                        splitTimeDisplay = formatTime(splitTime);
+                    } else {
+                        splitTimeDisplay = '-';
+                    }
 
                     row.innerHTML = `
                         <td>${index + 1}</td>
                         <td><span class="checkpoint ${checkpointClass}">${getCheckpointLabel(cp.checkpoint)}</span></td>
                         <td class="time">${formatTime(cp.timestamp)}</td>
-                        <td class="time">${formatTime(splitTime)}</td>
+                        <td class="time">${splitTimeDisplay}</td>
                     `;
-                    
+
                     tableBody.appendChild(row);
                 });
 

@@ -12,6 +12,7 @@ struct CheckpointPress {
 // Global variables
 extern CheckpointPress pressTable[100];
 extern uint8_t pressCount;
+extern uint8_t courseLength;
 
 // Function declarations
 void processReadoutTrigger();
