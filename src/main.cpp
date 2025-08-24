@@ -130,7 +130,11 @@ void processCheckpoint(uint8_t checkpointNum, uint8_t courseLen) {
     validCheckpoint = true;
 
     // Check sequence correctness
-    if (checkpointNum == nextExpectedCheckpoint || checkpointNum == 99) {
+    if (
+        (checkpointNum == nextExpectedCheckpoint && checkpointNum <= courseLength)
+        || checkpointNum == 99
+    ) {
+
       correctSequence = true;
       if (checkpointNum == 99) {
         LOGLN_INFO(F("Finish checkpoint detected"));
@@ -157,9 +161,13 @@ void processCheckpoint(uint8_t checkpointNum, uint8_t courseLen) {
         playSuccessTone();
       }
     } else {
+      uint8_t expected = nextExpectedCheckpoint;
+      if (expected == courseLength + 1) {
+        expected = 99;
+      }
       LOG_INFO(F("Incorrect sequence - expected "));
-      if (nextExpectedCheckpoint < 10) LOG_INFO(F("0"));
-      LOG_INFO(nextExpectedCheckpoint);
+      if (expected < 10) LOG_INFO(F("0"));
+      LOG_INFO(expected);
       LOG_INFO(F(", got "));
       if (checkpointNum < 10) LOG_INFO(F("0"));
       LOGLN_INFO(checkpointNum);
