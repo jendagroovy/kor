@@ -42,6 +42,18 @@ const Note ERROR_MELODY[] = {
 };
 const int ERROR_MELODY_LENGTH = sizeof(ERROR_MELODY) / sizeof(ERROR_MELODY[0]);
 
+const Note MISS_MELODY[] = {
+  {NOTE_CS4, 100},
+  {NOTE_C4, 100},
+  {NOTE_CS4, 100},
+  {NOTE_C4, 100},
+  {NOTE_CS4, 100},
+  {NOTE_C4, 100},
+  {NOTE_CS4, 100},
+  {NOTE_C4, 100},
+};
+const int MISS_MELODY_LENGTH = sizeof(MISS_MELODY) / sizeof(MISS_MELODY[0]);
+
 const Note READOUT_START_MELODY[] = {
   {NOTE_C4, 100},
   {NOTE_D4, 100},
@@ -59,5 +71,6 @@ const int READOUT_END_MELODY_LENGTH = sizeof(READOUT_END_MELODY) / sizeof(READOU
 void playMelody(const Note melody[], int length);
 void playBuzzer(int duration_ms);
 void playSuccessTone();
+void playLament();
 
 #endif

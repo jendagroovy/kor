@@ -15,6 +15,6 @@ extern uint8_t pressCount;
 
 // Function declarations
 void processReadoutTrigger();
-void processCheckpoint(uint8_t checkpointNum);
+void processCheckpoint(uint8_t checkpointNum, uint8_t courseLen);
 
 #endif
