@@ -46,7 +46,7 @@ bool parseNdefRecord(uint8_t* data, uint16_t dataLength);
 void processCheckpoint(uint8_t checkpointNum);
 void processReadoutTrigger();
 void clearPressTable();
-void addCheckpointPress(uint8_t checkpoint);
+void addCheckpointPress(uint8_t checkpoint, bool isStart);
 String serializePressTable();
 bool writeUrlToNfc(String url);
 void printPressTable();
@@ -387,7 +387,7 @@ void processCheckpoint(uint8_t checkpointNum) {
       raceStartTime = millis();  // Set race start time baseline in milliseconds
       LOG_DEBUG(F("Race start time set to: "));
       LOGLN_DEBUG(raceStartTime);
-      addCheckpointPress(0);
+      addCheckpointPress(0, true);
       currentState = RACE_RUNNING;
       validCheckpoint = true;
       playMelody(INIT_MELODY, INIT_MELODY_LENGTH);
@@ -399,7 +399,7 @@ void processCheckpoint(uint8_t checkpointNum) {
     if (checkpointNum < 10) LOG_INFO(F("0"));
     LOGLN_INFO(checkpointNum);
     
-    addCheckpointPress(checkpointNum);
+    addCheckpointPress(checkpointNum, false);
     validCheckpoint = true;
     
     if (checkpointNum == 99) {
@@ -443,12 +443,12 @@ void clearPressTable() {
   memset(pressTable, 0, sizeof(pressTable));
 }
 
-void addCheckpointPress(uint8_t checkpoint) {
+void addCheckpointPress(uint8_t checkpoint, bool isStart) {
   if (pressCount < 100) {
     pressTable[pressCount].checkpoint = checkpoint;
     
     // Store relative timestamp (milliseconds since race start)
-    if (raceStartTime > 0) {
+    if (raceStartTime > 0 && !isStart) {
       pressTable[pressCount].timestamp = millis() - raceStartTime;
     } else {
       pressTable[pressCount].timestamp = 0;  // Race hasn't started yet
