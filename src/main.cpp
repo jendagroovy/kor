@@ -5,6 +5,8 @@
 #include <Wire.h>
 #include <Adafruit_PN532.h>
 
+#include "pitches.h"
+
 // Ensure core Arduino objects are available
 extern HardwareSerial Serial;
 extern SPIClass SPI;
@@ -13,6 +15,55 @@ extern TwoWire Wire;
 // Pin definitions for Wemos D1 Mini
 #define PN532_SS   (16)  // D0 - Slave Select pin for PN532
 #define BUZZER_PIN (15)  // D8
+
+// Structure to hold note and duration pairs
+struct Note {
+  int frequency;
+  int duration;
+};
+
+// Define melodies as constant arrays
+const Note INIT_MELODY[] = {
+  {NOTE_C4, 100},
+  {NOTE_D4, 100},
+  {NOTE_E4, 100},
+  {NOTE_F4, 100},
+  {NOTE_G4, 100}
+};
+const int INIT_MELODY_LENGTH = sizeof(INIT_MELODY) / sizeof(INIT_MELODY[0]);
+
+const Note FINISH_MELODY[] = {
+  {NOTE_C4, 90},
+  {REST, 10},
+  {NOTE_C4, 90},
+  {REST, 10},
+  {NOTE_C4, 90},
+  {REST, 10},
+  {NOTE_G4, 100},
+  {REST, 100},
+  {NOTE_C4, 100},
+  {NOTE_G4, 400},
+};
+const int FINISH_MELODY_LENGTH = sizeof(FINISH_MELODY) / sizeof(FINISH_MELODY[0]);
+
+const Note ERROR_MELODY[] = {
+  {NOTE_C2, 1000},
+};
+const int ERROR_MELODY_LENGTH = sizeof(ERROR_MELODY) / sizeof(ERROR_MELODY[0]);
+
+const Note READOUT_START_MELODY[] = {
+  {NOTE_C4, 100},
+  {NOTE_D4, 100},
+  {NOTE_E4, 100},
+};
+const int READOUT_START_MELODY_LENGTH = sizeof(READOUT_START_MELODY) / sizeof(READOUT_START_MELODY[0]);
+
+const Note READOUT_END_MELODY[] = {
+  {NOTE_A4, 100},
+  {NOTE_B4, 100},
+  {NOTE_C5, 100},
+};
+const int READOUT_END_MELODY_LENGTH = sizeof(READOUT_END_MELODY) / sizeof(READOUT_END_MELODY[0]);
 
 // Use hardware SPI communication for PN532
 // Hardware SPI uses fixed pins: SCK=D5, MOSI=D7, MISO=D6
@@ -40,9 +91,9 @@ const uint32_t NFC_CHECK_INTERVAL = 500; // Check NFC every 500ms
 
 // Function declarations
 void playBuzzer(int duration_ms);
+void playMelody(const Note melody[], int length);
 void playSuccessBeep();
 void playSuccessTone();
-void playErrorBeep();
 bool readNfcCard();
 bool parseNdefRecord(uint8_t* data, uint16_t dataLength);
 void processCheckpoint(uint8_t checkpointNum);
@@ -61,8 +112,8 @@ void setup() {
   pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(BUZZER_PIN, LOW);
   
-  // Play startup beep
-  playSuccessBeep();
+  // Play startup tone
+  playMelody(INIT_MELODY, INIT_MELODY_LENGTH);
   
   // Initialize PN532
   nfc.begin();
@@ -70,7 +121,12 @@ void setup() {
   uint32_t versiondata = nfc.getFirmwareVersion();
   if (!versiondata) {
     Serial.println(F("Didn't find PN532 board"));
-    playErrorBeep();
+    delay(500);
+    playMelody(ERROR_MELODY, ERROR_MELODY_LENGTH);
+    delay(500);
+    playMelody(ERROR_MELODY, ERROR_MELODY_LENGTH);
+    delay(500);
+    playMelody(ERROR_MELODY, ERROR_MELODY_LENGTH);
     while (1) delay(1000); // halt
   }
   
@@ -103,6 +159,17 @@ void playBuzzer(int duration_ms) {
   digitalWrite(BUZZER_PIN, LOW);
 }
 
+void playMelody(const Note melody[], int length) {
+  for (int i = 0; i < length; i++) {
+    if (melody[i].frequency == REST) {
+      delay(melody[i].duration);  // Just pause for REST notes
+    } else {
+      tone(BUZZER_PIN, melody[i].frequency, melody[i].duration);
+      delay(melody[i].duration);
+    }
+  }
+}
+
 void playSuccessBeep() {
   playBuzzer(100);
   delay(50);
@@ -110,13 +177,8 @@ void playSuccessBeep() {
 }
 
 void playSuccessTone() {
-  // Generate 3.7kHz tone for 300ms
   tone(BUZZER_PIN, 1500, 300);
   delay(300); // Wait for tone to complete
-}
-
-void playErrorBeep() {
-  playBuzzer(500);
 }
 
 bool readNfcCard() {
@@ -203,7 +265,7 @@ bool readNfcCard() {
     
     if (!success) {
       Serial.println(F("No valid KOR data found"));
-      playErrorBeep();
+      playMelody(ERROR_MELODY, ERROR_MELODY_LENGTH);
     }
     
     delay(5000); // Cooldown period before allowing next read
@@ -395,6 +457,7 @@ void processCheckpoint(uint8_t checkpointNum) {
       addCheckpointPress(0);
       currentState = RACE_RUNNING;
       validCheckpoint = true;
+      playMelody(INIT_MELODY, INIT_MELODY_LENGTH);
     } else {
       Serial.println(F("Only KOR00 accepted in PENDING state"));
     }
@@ -409,14 +472,16 @@ void processCheckpoint(uint8_t checkpointNum) {
     if (checkpointNum == 99) {
       Serial.println(F("Finish checkpoint detected - switching to PENDING"));
       currentState = RACE_PENDING;
+      playMelody(FINISH_MELODY, FINISH_MELODY_LENGTH);
+    } else {
+      playSuccessTone();
     }
   }
   
   if (validCheckpoint) {
-    playSuccessTone();
     printPressTable();
   } else {
-    playErrorBeep();
+    playMelody(ERROR_MELODY, ERROR_MELODY_LENGTH);
   }
 }
 
@@ -428,13 +493,15 @@ void processReadoutTrigger() {
   
   Serial.println(F("Generated dump URL:"));
   Serial.println(dumpUrl);
+
+  playMelody(READOUT_START_MELODY, READOUT_START_MELODY_LENGTH);
   
   if (writeUrlToNfc(dumpUrl)) {
     Serial.println(F("Successfully wrote dump URL to NFC card"));
-    playSuccessBeep();
+    playMelody(READOUT_END_MELODY, READOUT_END_MELODY_LENGTH);
   } else {
     Serial.println(F("Failed to write dump URL to NFC card"));
-    playErrorBeep();
+    playMelody(ERROR_MELODY, ERROR_MELODY_LENGTH);
   }
 }
 
