@@ -5,7 +5,7 @@
 #include <Wire.h>
 #include <Adafruit_PN532.h>
 
-#include "pitches.h"
+#include "melodies.h"
 
 // Ensure core Arduino objects are available
 extern HardwareSerial Serial;
@@ -14,56 +14,6 @@ extern TwoWire Wire;
 
 // Pin definitions for Wemos D1 Mini
 #define PN532_SS   (16)  // D0 - Slave Select pin for PN532
-#define BUZZER_PIN (15)  // D8
-
-// Structure to hold note and duration pairs
-struct Note {
-  int frequency;
-  int duration;
-};
-
-// Define melodies as constant arrays
-const Note INIT_MELODY[] = {
-  {NOTE_C4, 100},
-  {NOTE_D4, 100},
-  {NOTE_E4, 100},
-  {NOTE_F4, 100},
-  {NOTE_G4, 100}
-};
-const int INIT_MELODY_LENGTH = sizeof(INIT_MELODY) / sizeof(INIT_MELODY[0]);
-
-const Note FINISH_MELODY[] = {
-  {NOTE_C4, 90},
-  {REST, 10},
-  {NOTE_C4, 90},
-  {REST, 10},
-  {NOTE_C4, 90},
-  {REST, 10},
-  {NOTE_G4, 100},
-  {REST, 100},
-  {NOTE_C4, 100},
-  {NOTE_G4, 400},
-};
-const int FINISH_MELODY_LENGTH = sizeof(FINISH_MELODY) / sizeof(FINISH_MELODY[0]);
-
-const Note ERROR_MELODY[] = {
-  {NOTE_C2, 1000},
-};
-const int ERROR_MELODY_LENGTH = sizeof(ERROR_MELODY) / sizeof(ERROR_MELODY[0]);
-
-const Note READOUT_START_MELODY[] = {
-  {NOTE_C4, 100},
-  {NOTE_D4, 100},
-  {NOTE_E4, 100},
-};
-const int READOUT_START_MELODY_LENGTH = sizeof(READOUT_START_MELODY) / sizeof(READOUT_START_MELODY[0]);
-
-const Note READOUT_END_MELODY[] = {
-  {NOTE_A4, 100},
-  {NOTE_B4, 100},
-  {NOTE_C5, 100},
-};
-const int READOUT_END_MELODY_LENGTH = sizeof(READOUT_END_MELODY) / sizeof(READOUT_END_MELODY[0]);
 
 // Use hardware SPI communication for PN532
 // Hardware SPI uses fixed pins: SCK=D5, MOSI=D7, MISO=D6
@@ -90,10 +40,6 @@ uint32_t raceStartTime = 0;  // Timestamp in milliseconds when KOR00 was scanned
 const uint32_t NFC_CHECK_INTERVAL = 500; // Check NFC every 500ms
 
 // Function declarations
-void playBuzzer(int duration_ms);
-void playMelody(const Note melody[], int length);
-void playSuccessBeep();
-void playSuccessTone();
 bool readNfcCard();
 bool parseNdefRecord(uint8_t* data, uint16_t dataLength);
 void processCheckpoint(uint8_t checkpointNum);
@@ -151,34 +97,6 @@ void loop() {
   }
   
   delay(10); // Small delay to prevent excessive CPU usage
-}
-
-void playBuzzer(int duration_ms) {
-  digitalWrite(BUZZER_PIN, HIGH);
-  delay(duration_ms);
-  digitalWrite(BUZZER_PIN, LOW);
-}
-
-void playMelody(const Note melody[], int length) {
-  for (int i = 0; i < length; i++) {
-    if (melody[i].frequency == REST) {
-      delay(melody[i].duration);  // Just pause for REST notes
-    } else {
-      tone(BUZZER_PIN, melody[i].frequency, melody[i].duration);
-      delay(melody[i].duration);
-    }
-  }
-}
-
-void playSuccessBeep() {
-  playBuzzer(100);
-  delay(50);
-  playBuzzer(100);
-}
-
-void playSuccessTone() {
-  tone(BUZZER_PIN, 1500, 300);
-  delay(300); // Wait for tone to complete
 }
 
 bool readNfcCard() {
