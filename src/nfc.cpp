@@ -100,9 +100,10 @@ bool readNfcCard() {
     if (!success) {
       LOGLN_WARN(F("No valid KOR data found"));
       playMelody(ERROR_MELODY, ERROR_MELODY_LENGTH);
+    } else {
+      delay(5000); // Cooldown period before allowing next read
     }
 
-    delay(5000); // Cooldown period before allowing next read
     return success;
   }
 

@@ -94,7 +94,7 @@ void loop() {
     readNfcCard();
   }
 
-  delay(10); // Small delay to prevent excessive CPU usage
+  delay(100); // Small delay to prevent excessive CPU usage
 }
 
 void processCheckpoint(uint8_t checkpointNum, uint8_t courseLen) {
